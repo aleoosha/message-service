@@ -5,20 +5,21 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
-        "laravel/framework": "^11.0",
-        "laravel/tinker": "^2.9"
+        "laravel/framework": "^12.0",
+        "laravel/tinker": "^2.9",
+        "mateusjunges/laravel-kafka": "^2.10"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
-        "larastan/larastan": "^2.9",
+        "larastan/larastan": "^3.0",
         "laravel/pint": "^1.13",
         "laravel/sail": "^1.26",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.1",
-        "pestphp/pest": "^2.34",
-        "pestphp/pest-plugin-laravel": "^2.3",
-        "phpstan/phpstan": "1.12.11",
-        "phpunit/phpunit": "^10.5"
+        "pestphp/pest": "^3.0",
+        "pestphp/pest-plugin-laravel": "^3.0",
+        "phpstan/phpstan": "^2.0",
+        "phpunit/phpunit": "^11.0"
     },
     "autoload": {
         "psr-4": {
@@ -45,8 +46,17 @@
         "platform": {
             "php": "8.3.30"
         },
+        "provide": {
+            "ext-rdkafka": "6.0.3"
+        },
+        "policy.advisories.ignore-id": [
+            "PKSA-mdq4-51ck-6kdq",
+            "PKSA-8qx3-n5y5-vvnd",
+            "PKSA-q46n-4fdk-zjr4",
+            "PKSA-qzrn-rnz3-85w1",
+            "PKSA-w7xr-vk7n-rstm"
+        ],
         "optimize-autoloader": true,
-        "preferred-install": "dist",
         "sort-packages": true,
         "allow-plugins": {
             "pestphp/pest-plugin": true,
