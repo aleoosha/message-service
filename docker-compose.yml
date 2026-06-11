@@ -208,6 +208,18 @@ services:
     networks:
       - app-network
 
+  # 11. Изолированный статический анализатор кода
+  phpstan:
+    image: "ghcr.io/phpstan/phpstan:latest"
+    container_name: "ms-phpstan"
+    volumes:
+      - ".:/app:ro"
+    working_dir: /app
+    command: analyse app routes
+    networks:
+      - app-network
+
+
 networks:
   app-network:
     driver: bridge
