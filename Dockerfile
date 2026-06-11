@@ -1,6 +1,6 @@
 FROM php:8.3-fpm-alpine
 
-# Устанавливаем системные зависимости и ГОТОВОЕ расширение rdkafka для PHP 8.3
+# Устанавливаем системные зависимости и готовое расширение rdkafka из репозиториев Alpine
 RUN apk add --no-cache \
     postgresql-dev \
     libpng-dev \
@@ -11,13 +11,17 @@ RUN apk add --no-cache \
     oniguruma-dev \
     linux-headers \
     librdkafka-dev \
-    php83-pecl-rdkafka # Готовый бинарный пакет расширения Кафки
+    php83-pecl-rdkafka
 
-# Для сборки Redis нам всё еще нужен pecl и инструменты сборки
+# Переносим расширение туда, где его ищет официальный образ PHP, и активируем его
+RUN cp /usr/lib/php83/modules/rdkafka.so $(php-config --extension-dir)/rdkafka.so \
+    && docker-php-ext-enable rdkafka
+
+# Для сборки Redis используем временные инструменты сборки
 RUN apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
     && pecl install redis \
     && docker-php-ext-enable redis \
-    && apk del .build-deps # Удаляем мусор после сборки, чтобы образ весил меньше
+    && apk del .build-deps
 
 # Установка встроенных расширений PHP
 RUN docker-php-ext-install pdo_pgsql pgsql bcmath gd mbstring pcntl

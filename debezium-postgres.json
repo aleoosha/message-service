@@ -1,0 +1,25 @@
+{
+  "name": "outbox-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "plugin.name": "pgoutput",
+    "database.hostname": "pgsql",
+    "database.port": "5432",
+    "database.user": "sail",
+    "database.password": "password",
+    "database.dbname": "message_service",
+    "topic.prefix": "cdc",
+    "table.include.list": "public.outbox_messages",
+    "tombstones.on.delete": "false",
+
+    "errors.log.enable": "true",
+    "errors.log.include.messages": "true",
+    "errors.tolerance": "all",
+    "errors.deadletterqueue.topic.name": "message.outbox.dlq",
+    
+    "errors.retry.max.failures": "5",
+    "errors.retry.delay.initial.ms": "1000",
+    "errors.retry.delay.backoff.enable": "true",
+    "errors.retry.delay.max.ms": "10000"
+  }
+}

@@ -1,0 +1,217 @@
+services:
+  # 1. База данных PostgreSQL (с поддержкой CDC / Debezium)
+  pgsql:
+    image: "debezium/postgres:15-alpine"
+    container_name: "ms-postgres"
+    environment:
+      POSTGRES_DB: "${DB_DATABASE:-message_service}"
+      POSTGRES_USER: "${DB_USERNAME:-sail}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD:-password}"
+    volumes:
+      - "db-data:/var/lib/postgresql/data"
+    command: ["postgres", "-c", "wal_level=logical", "-c", "max_replication_slots=4", "-c", "max_wal_senders=4"]
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-sail} -d ${DB_DATABASE:-message_service}"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
+  # 2. Redis (для идемпотентности, дедубликации и атомарных блокировок)
+  redis:
+    image: "redis:alpine"
+    container_name: "ms-redis"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
+  # 3. Apache Kafka (Современный режим KRaft, без тяжелого Zookeeper)
+  kafka:
+    image: "confluentinc/cp-kafka:7.5.0"
+    container_name: "ms-kafka"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:19092'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:29093'
+      KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:29093,PLAINTEXT_HOST://0.0.0.0:19092'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka:9092 --list || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 4. Debezium (CDC Outbox Relay — читает WAL-лог Postgres)
+  debezium:
+    image: "debezium/connect:2.4"
+    container_name: "ms-debezium"
+    ports:
+      - "8083:8083"
+    environment:
+      BOOTSTRAP_SERVERS: "kafka:9092"
+      GROUP_ID: "debezium_connect_group"
+      CONFIG_STORAGE_TOPIC: "debezium_configs"
+      OFFSET_STORAGE_TOPIC: "debezium_offsets"
+      STATUS_STORAGE_TOPIC: "debezium_statuses"
+    depends_on:
+      pgsql:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  # 5. Автономный инициализатор Debezium
+  debezium-init:
+    image: "curlimages/curl:latest"
+    container_name: "ms-debezium-init"
+    volumes:
+      - "./debezium-postgres.json:/tmp/config.json:ro" # Монтируем чистый файл конфигурации
+    depends_on:
+      debezium:
+        condition: service_started
+    networks:
+      - app-network
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Waiting for Debezium API..."
+        while [ $$(curl -s -o /dev/null -w "%{http_code}" http://debezium:8083/connectors) -ne 200 ]; do sleep 2; done
+        
+        echo "Registering PostgreSQL Outbox Connector via clean JSON file..."
+        curl -X POST -H "Content-Type: application/json" -d @/tmp/config.json http://debezium:8083/connectors
+        echo "Connector registered successfully!"
+
+  # 6. ClickHouse (Аналитическая база данных для отчетов по статусам)
+  clickhouse:
+    image: "clickhouse/clickhouse-server:latest"
+    container_name: "ms-clickhouse"
+    ports:
+      - "8123:8123" # HTTP интерфейс для Laravel
+      - "9000:9000" # Нативный клиент
+    environment:
+      CLICKHOUSE_DB: "analytics"
+    volumes:
+      - "./clickhouse-init.sql:/docker-entrypoint-initdb.d/clickhouse-init.sql:ro" # Монтируем SQL скрипт
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # 7. Инициализатор Laravel (Создает структуру БД и прогоняет миграции)
+  db-init:
+    build: .
+    container_name: "ms-db-init"
+    user: root
+    environment:
+      - DB_HOST=pgsql
+      - DB_DATABASE=${DB_DATABASE:-message_service}
+      - DB_USERNAME=${DB_USERNAME:-sail}
+      - DB_PASSWORD=${DB_PASSWORD:-password}
+    volumes:
+      - ".:/var/www/html"
+    command: php artisan migrate --force --no-interaction
+    depends_on:
+      pgsql:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  # 8. Основное API приложения (Laravel)
+  app:
+    build: .
+    container_name: "ms-app"
+    user: root
+    ports:
+      - "${APP_PORT:-8080}:8000"
+    environment:
+      - DB_HOST=pgsql
+      - DB_DATABASE=${DB_DATABASE:-message_service}
+      - DB_USERNAME=${DB_USERNAME:-sail}
+      - DB_PASSWORD=${DB_PASSWORD:-password}
+      - REDIS_HOST=redis
+      - KAFKA_BROKERS=kafka:9092
+      - CLICKHOUSE_HOST=clickhouse
+    volumes:
+      - ".:/var/www/html"
+    command: php artisan serve --host=0.0.0.0 --port=8000
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    networks:
+      - app-network
+
+  # 9. Высокоприоритетный воркер Кафки
+  kafka-worker-high:
+    build: .
+    container_name: "ms-worker-high"
+    user: root
+    environment:
+      - DB_HOST=pgsql
+      - REDIS_HOST=redis
+      - KAFKA_BROKERS=kafka:9092
+      - DB_DATABASE=${DB_DATABASE:-message_service}
+      - DB_USERNAME=${DB_USERNAME:-sail}
+      - DB_PASSWORD=${DB_PASSWORD:-password}
+    volumes:
+      - ".:/var/www/html"
+    command: php artisan app:consume-kafka --topic=high
+    depends_on:
+      kafka:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+    restart: always
+    networks:
+      - app-network
+
+  # 10. Низкоприоритетный воркер Кафки
+  kafka-worker-low:
+    build: .
+    container_name: "ms-worker-low"
+    user: root
+    environment:
+      - DB_HOST=pgsql
+      - REDIS_HOST=redis
+      - KAFKA_BROKERS=kafka:9092
+      - DB_DATABASE=${DB_DATABASE:-message_service}
+      - DB_USERNAME=${DB_USERNAME:-sail}
+      - DB_PASSWORD=${DB_PASSWORD:-password}
+    volumes:
+      - ".:/var/www/html"
+    command: php artisan app:consume-kafka --topic=low
+    depends_on:
+      kafka:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+    restart: always
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  db-data:
+    driver: local

@@ -1,6 +1,9 @@
 #!/bin/sh
 set -e
 
+# Разрешаем Git работать с этой папкой внутри контейнера
+git config --global --add safe.directory /var/www/html
+
 # Если папка vendor отсутствует, устанавливаем зависимости
 if [ ! -d "vendor" ]; then
     echo "Папка vendor не найдена. Запуск composer install..."
