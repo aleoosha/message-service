@@ -90,7 +90,7 @@ class ProcessNotificationHandler
      */
     private function acquireLock(string $messageId): bool
     {
-        return (bool) Redis::set("msg:lock:{$messageId}", 'processing', 'NX', 'EX', self::LOCK_TTL);
+        return (bool) Redis::command('set', ["msg:lock:{$messageId}", 'processing', 'NX', 'EX', self::LOCK_TTL]);
     }
 
     /**
@@ -107,7 +107,7 @@ class ProcessNotificationHandler
     private function markAsProcessed(string $messageId, string $recipient): void
     {
         $this->emitStatusEvent($messageId, $recipient, 'sent');
-        Redis::set("msg:status:{$messageId}", 'done', 'EX', self::STATUS_TTL);
+        Redis::setex("msg:status:{$messageId}", self::STATUS_TTL, 'done');
     }
 
     /**
@@ -117,7 +117,7 @@ class ProcessNotificationHandler
     {
         Log::notice("Message {$messageId} dropped: {$reason}");
         $this->emitStatusEvent($messageId, $recipient, 'dropped');
-        Redis::set("msg:status:{$messageId}", 'done', 'EX', self::STATUS_TTL);
+        Redis::setex("msg:status:{$messageId}", self::STATUS_TTL, 'done');
     }
 
     /**
@@ -135,7 +135,7 @@ class ProcessNotificationHandler
         }
 
         $this->emitStatusEvent($messageId, $recipient, 'dropped');
-        Redis::set("msg:status:{$messageId}", 'done', 'EX', self::STATUS_TTL);
+        Redis::setex("msg:status:{$messageId}", self::STATUS_TTL, 'done');
     }
 
     /**

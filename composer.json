@@ -11,14 +11,12 @@
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
-        "larastan/larastan": "^3.0",
         "laravel/pint": "^1.13",
         "laravel/sail": "^1.26",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.1",
         "pestphp/pest": "^3.0",
         "pestphp/pest-plugin-laravel": "^3.0",
-        "phpstan/phpstan": "^2.0",
         "phpunit/phpunit": "^11.0"
     },
     "autoload": {
@@ -34,7 +32,7 @@
         }
     },
     "scripts": {
-        "lint": "phpstan analyse app routes --memory-limit=2G",
+        "lint": "echo 'Запусти в терминале хоста: docker compose run --rm phpstan'",
         "format": "pint",
         "test": "pest",
         "post-autoload-dump": [

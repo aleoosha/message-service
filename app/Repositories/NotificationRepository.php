@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace App\Repositories;
 
 use App\DTO\BulkNotificationDTO;
+use App\Repositories\Contracts\NotificationRepositoryInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
  * Репозиторий для управления персистентным состоянием уведомлений в базе данных PostgreSQL.
  */
-class NotificationRepository
+class NotificationRepository implements NotificationRepositoryInterface
 {
     /**
      * Выполняет атомарную запись пакета уведомлений в операционную и Outbox таблицы.

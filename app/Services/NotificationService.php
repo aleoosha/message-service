@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\DTO\BulkNotificationDTO;
-use App\Repositories\NotificationRepository;
+use App\Repositories\Contracts\NotificationRepositoryInterface;
 
 /**
  * Сервисный слой для оркестрации бизнес-логики системы уведомлений.
@@ -13,7 +13,7 @@ use App\Repositories\NotificationRepository;
 readonly class NotificationService
 {
     public function __construct(
-        private NotificationRepository $repository
+        private NotificationRepositoryInterface $repository
     ) {}
 
     /**

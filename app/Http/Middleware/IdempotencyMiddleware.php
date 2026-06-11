@@ -9,8 +9,16 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redis;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * Посредник (Middleware) для обеспечения идемпотентности API-запросов с использованием Redis.
+ */
 class IdempotencyMiddleware
 {
+    /**
+     * Обрабатывает входящий запрос, проверяя наличие и состояние ключа идемпотентности.
+     *
+     * @param  Closure(Request): Response  $next
+     */
     public function handle(Request $request, Closure $next): Response
     {
         $key = $request->header('X-Idempotency-Key');
@@ -23,10 +31,10 @@ class IdempotencyMiddleware
         $responseKey = "idempotency:response:{$key}";
 
         if ($cachedResponse = Redis::get($responseKey)) {
-            return response()->json(json_decode($cachedResponse, true), 200);
+            return response()->json(json_decode((string) $cachedResponse, true), 200);
         }
 
-        $lockAcquired = Redis::set($lockKey, 'processing', 'NX', 'EX', 10);
+        $lockAcquired = Redis::command('set', [$lockKey, 'processing', 'NX', 'EX', 10]);
 
         if (! $lockAcquired) {
             return response()->json(['error' => 'Concurrent request in progress. Please try again.'], 409);
@@ -37,7 +45,7 @@ class IdempotencyMiddleware
 
             if ($response->isSuccessful()) {
                 $responseData = json_decode($response->getContent() ?: '{}', true);
-                Redis::set($responseKey, json_encode($responseData), 'EX', 86400);
+                Redis::setex($responseKey, 86400, json_encode($responseData));
             }
 
             return $response;

@@ -28,9 +28,10 @@ class NotificationController extends Controller
 
         $action->execute($dto);
 
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Bulk notifications accepted for delivery',
-        ], 202);
+        return $this->success(
+            data: null,
+            message: 'Bulk notifications accepted for delivery',
+            code: 202
+        );
     }
 }
