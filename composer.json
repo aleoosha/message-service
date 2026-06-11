@@ -33,7 +33,7 @@
         }
     },
     "scripts": {
-        "lint": "phpstan analyse --memory-limit=2G",
+        "lint": "phpstan analyse app routes --memory-limit=2G",
         "format": "pint",
         "test": "pest",
         "post-autoload-dump": [

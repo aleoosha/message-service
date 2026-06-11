@@ -20,7 +20,7 @@ readonly class BulkNotificationDTO
 
     public static function fromRequest(array $data, string $idempotencyKey): self
     {
-        $ints = array_map(fn($id) => (int) $id, $data['user_ids']);
+        $ints = array_map(fn ($id) => (int) $id, $data['user_ids']);
 
         return new self(
             idempotencyKey: $idempotencyKey,

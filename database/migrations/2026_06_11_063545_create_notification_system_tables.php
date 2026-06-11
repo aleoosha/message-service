@@ -13,7 +13,7 @@ return new class extends Migration
         // 1. БИЗНЕС-ТАБЛИЦА: Хранит состояние внутри Laravel (если нужно для локальной логики)
         Schema::create('notifications', function (Blueprint $table) {
             $table->id();
-            
+
             $table->uuid('uuid')->unique()->index()
                 ->comment('Глобальный уникальный ID уведомления');
 

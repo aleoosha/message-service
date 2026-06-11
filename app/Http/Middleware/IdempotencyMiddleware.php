@@ -15,7 +15,7 @@ class IdempotencyMiddleware
     {
         $key = $request->header('X-Idempotency-Key');
 
-        if (!$key) {
+        if (! $key) {
             return response()->json(['error' => 'Header X-Idempotency-Key is required'], 400);
         }
 
@@ -28,7 +28,7 @@ class IdempotencyMiddleware
 
         $lockAcquired = Redis::set($lockKey, 'processing', 'NX', 'EX', 10);
 
-        if (!$lockAcquired) {
+        if (! $lockAcquired) {
             return response()->json(['error' => 'Concurrent request in progress. Please try again.'], 409);
         }
 

@@ -13,7 +13,7 @@ use Illuminate\Http\JsonResponse;
 class NotificationController extends Controller
 {
     public function sendBulk(
-        BulkNotificationRequest $request, 
+        BulkNotificationRequest $request,
         SendBulkNotificationAction $action
     ): JsonResponse {
         $idempotencyKey = (string) $request->header('X-Idempotency-Key');
@@ -24,7 +24,7 @@ class NotificationController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Bulk notifications accepted for delivery'
+            'message' => 'Bulk notifications accepted for delivery',
         ], 202);
     }
 }

@@ -12,7 +12,7 @@ class NotificationRepository
 {
     /**
      * Сохраняет пакет уведомлений в бизнес-таблицу и таблицу Outbox.
-     * 
+     *
      * Использование ACID транзакции гарантирует атомарность: данные
      * попадут в обе таблицы одновременно, либо транзакция полностью откатится.
      */
@@ -24,7 +24,7 @@ class NotificationRepository
 
                 DB::table('notifications')->insert([
                     'uuid' => $notificationUuid,
-                    'idempotency_key' => $dto->idempotencyKey . ':' . $userId,
+                    'idempotency_key' => $dto->idempotencyKey.':'.$userId,
                     'user_id' => $userId,
                     'text' => $dto->text,
                     'channel' => $dto->channel->value,
