@@ -8,10 +8,12 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Выполняет создание таблиц базы данных с подробным комментированием полей.
+     */
     public function up(): void
     {
-        // 1. БИЗНЕС-ТАБЛИЦА: Хранит состояние внутри Laravel (если нужно для локальной логики)
-        Schema::create('notifications', function (Blueprint $table) {
+        Schema::create('notifications', function (Blueprint $table): void {
             $table->id();
 
             $table->uuid('uuid')->unique()->index()
@@ -30,30 +32,37 @@ return new class extends Migration
                 ->comment('Канал отправки: email, telegram, sms');
 
             $table->timestamps();
-            $table->softDeletes(); // Мягкое удаление для бизнес-сущности
+            $table->softDeletes();
 
             $table->comment('Бизнес-таблица истории уведомлений на стороне Laravel');
         });
 
-        // 2. ТЕХНИЧЕСКАЯ ТАБЛИЦА: Чистый Transactional Outbox для Debezium
-        // ВАЖНО: Никаких updates, statuses и soft deletes. Только INSERT.
-        Schema::create('outbox_messages', function (Blueprint $table) {
+        Schema::create('outbox_messages', function (Blueprint $table): void {
             $table->uuid('id')->primary()
-                ->comment('UUID сообщения, совпадающий с uuid в таблице notifications');
+                ->comment('Уникальный идентификатор события транзакционного лога Outbox');
 
-            $table->string('priority')->index()
-                ->comment('Приоритет сообщения (high/low). Используется Debezium для маршрутизации в топики');
+            $table->string('aggregatetype')
+                ->comment('Тип бизнес-агрегата для группировки событий в Debezium (например, Notification)');
+
+            $table->string('aggregateid')
+                ->comment('Связующий идентификатор конкретного экземпляра агрегата');
+
+            $table->string('type')
+                ->comment('Тип события, используемый Debezium как маркер динамической маршрутизации (high/low)');
 
             $table->jsonb('payload')
-                ->comment('Полный JSON-пакет данных сообщения (текст, получатель, канал) для отправки в Кафку');
+                ->comment('Полное сериализованное тело сообщения (JSON) для передачи в шину событий');
 
             $table->timestamp('created_at')->useCurrent()->index()
-                ->comment('Таймстамп создания записи для хронологического чтения CDC лога');
+                ->comment('Штамп времени создания записи в логе Outbox');
 
-            $table->comment('Техническая append-only таблица паттерна Transactional Outbox для чтения Debezium');
+            $table->comment('Стандартная append-only таблица Debezium Outbox');
         });
     }
 
+    /**
+     * Выполняет откат миграции, удаляя созданные таблицы.
+     */
     public function down(): void
     {
         Schema::dropIfExists('outbox_messages');
