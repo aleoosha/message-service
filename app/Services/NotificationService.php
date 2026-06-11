@@ -7,12 +7,18 @@ namespace App\Services;
 use App\DTO\BulkNotificationDTO;
 use App\Repositories\NotificationRepository;
 
-class NotificationService
+/**
+ * Сервисный слой для оркестрации бизнес-логики системы уведомлений.
+ */
+readonly class NotificationService
 {
     public function __construct(
         private NotificationRepository $repository
     ) {}
 
+    /**
+     * Запускает процесс обработки и персистентного сохранения пакета уведомлений.
+     */
     public function dispatchBulkNotification(BulkNotificationDTO $dto): void
     {
         $this->repository->saveBulk($dto);
