@@ -5,3 +5,9 @@ parameters:
         - routes
     excludePaths:
         - vendor/*
+    
+    treatPhpDocTypesAsCertain: false
+    
+    ignoreErrors:
+        - '#Call to an undefined static method Illuminate\\Support\\Facades\\Redis::executeRaw\(\)\.#'
+        - '#Result of static method Illuminate\\Support\\Facades\\Redis::keys\(\) \(void\) is used\.#'
