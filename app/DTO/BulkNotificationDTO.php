@@ -26,12 +26,12 @@ readonly class BulkNotificationDTO
      *
      * @param  array<string, mixed>  $data
      */
-    public static function fromRequest(array $data, string $idempotencyKey): self
+    public static function fromRequest(array $data): self
     {
         $ints = array_map(fn ($id) => (int) $id, $data['user_ids']);
 
         return new self(
-            idempotencyKey: $idempotencyKey,
+            idempotencyKey: $data['idempotency_key'],
             channel: NotificationChannel::from($data['channel']),
             priority: NotificationPriority::from($data['priority'] ?? 'low'),
             text: (string) $data['text'],

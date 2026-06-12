@@ -4,40 +4,49 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Traits\ApiResponse;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redis;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * Посредник (Middleware) для обеспечения идемпотентности API-запросов с использованием Redis.
- */
 class IdempotencyMiddleware
 {
+    use ApiResponse;
+
     /**
-     * Обрабатывает входящий запрос, проверяя наличие и состояние ключа идемпотентности.
-     *
-     * @param  Closure(Request): Response  $next
+     * @param Request $request
+     * @param Closure(Request): Response $next
+     * @return Response
      */
     public function handle(Request $request, Closure $next): Response
     {
         $key = $request->header('X-Idempotency-Key');
 
         if (! $key) {
-            return response()->json(['error' => 'Header X-Idempotency-Key is required'], 400);
+            return $this->error(
+                message: 'Header X-Idempotency-Key is required',
+                code: 400
+            );
         }
 
-        $lockKey = "idempotency:lock:{$key}";
-        $responseKey = "idempotency:response:{$key}";
+        $stringKey = (string) $key;
+        $responseKey = "idempotency:response:{$stringKey}";
 
-        if ($cachedResponse = Redis::get($responseKey)) {
+        $cachedResponse = Redis::get($responseKey);
+
+        if ($cachedResponse !== null && $cachedResponse !== false && $cachedResponse !== '') {
             return response()->json(json_decode((string) $cachedResponse, true), 200);
         }
 
-        $lockAcquired = Redis::command('set', [$lockKey, 'processing', 'NX', 'EX', 10]);
+        $lockKey = "idempotency:lock:{$stringKey}";
+        $lockAcquired = Redis::executeRaw(['SET', $lockKey, 'processing', 'NX', 'EX', '10']);
 
-        if (! $lockAcquired) {
-            return response()->json(['error' => 'Concurrent request in progress. Please try again.'], 409);
+        if (!$lockAcquired || $lockAcquired === 'FALSE') {
+            return $this->error(
+                message: 'Concurrent request in progress. Please try again.',
+                code: 409
+            );
         }
 
         try {
