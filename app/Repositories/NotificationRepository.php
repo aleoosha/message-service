@@ -7,7 +7,6 @@ namespace App\Repositories;
 use App\DTO\BulkNotificationDTO;
 use App\Repositories\Contracts\NotificationRepositoryInterface;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 /**
  * Репозиторий для управления персистентным состоянием уведомлений в базе данных PostgreSQL.
@@ -27,7 +26,7 @@ class NotificationRepository implements NotificationRepositoryInterface
 
                 DB::table('notifications')->insert([
                     'uuid' => $notificationUuid,
-                    'idempotency_key' => $dto->idempotencyKey . ':' . $userId,
+                    'idempotency_key' => $dto->idempotencyKey.':'.$userId,
                     'user_id' => (int) $userId,
                     'text' => $dto->text,
                     'channel' => $dto->channel->value,

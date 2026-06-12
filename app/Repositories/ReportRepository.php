@@ -43,8 +43,8 @@ class ReportRepository implements ReportRepositoryInterface
 
         $response = Http::withBody($sql, 'text/plain')->post($this->url);
 
-        if (!$response->successful()) {
-            return new ReportCollection();
+        if (! $response->successful()) {
+            return new ReportCollection;
         }
 
         $data = json_decode($response->body(), true, 512, JSON_THROW_ON_ERROR);

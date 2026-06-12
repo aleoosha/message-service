@@ -25,21 +25,20 @@ readonly class SendBulkNotificationAction
     /**
      * Выполняет генерацию идентификаторов, сборку DTO и передачу пакета в сервис.
      *
-     * @param string $idempotencyKey
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      * @return Collection<int, GeneratedMessageDTO>
      */
     public function execute(string $idempotencyKey, array $payload): Collection
     {
         $userIdsArray = (array) $payload['user_ids'];
-        
+
         $messageIds = [];
         $mapping = collect();
-        
+
         foreach ($userIdsArray as $userId) {
             $uuid = Str::uuid()->toString();
             $messageIds[] = $uuid;
-            
+
             $mapping->push(new GeneratedMessageDTO(
                 userId: (int) $userId,
                 messageId: $uuid

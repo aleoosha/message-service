@@ -16,8 +16,7 @@ readonly class ReportDTO
     /**
      * Создает DTO из сырого массива строки ClickHouse.
      *
-     * @param array<string, string> $row
-     * @return self
+     * @param  array<string, string>  $row
      */
     public static function fromClickHouse(array $row): self
     {

@@ -9,13 +9,13 @@ use Illuminate\Support\Collection;
 
 /**
  * Коллекция объектов аналитических отчетов.
- * 
+ *
  * @extends Collection<int, ReportDTO>
  */
 class ReportCollection extends Collection
 {
     /**
-     * @param array<int, ReportDTO> $items
+     * @param  array<int, ReportDTO>  $items
      */
     public function __construct(array $items = [])
     {

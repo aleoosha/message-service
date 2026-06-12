@@ -20,9 +20,6 @@ readonly class GetAnalyticsReportAction
     /**
      * Выполняет выборку и рассчитывает метаданные курсора.
      *
-     * @param string $recipient
-     * @param int $limit
-     * @param string|null $cursor
      * @return Collection<string, mixed>|null
      */
     public function execute(string $recipient, int $limit = 15, ?string $cursor = null): ?Collection
@@ -37,8 +34,8 @@ readonly class GetAnalyticsReportAction
 
         $items = array_map(fn (ReportDTO $report) => [
             'message_id' => $report->messageId,
-            'recipient'  => $report->recipient,
-            'status'     => $report->status,
+            'recipient' => $report->recipient,
+            'status' => $report->status,
             'updated_at' => $report->updatedAt,
         ], $reportsArray);
 
@@ -50,7 +47,7 @@ readonly class GetAnalyticsReportAction
             'meta' => [
                 'limit' => $limit,
                 'next_cursor' => $nextCursor,
-            ]
+            ],
         ]);
     }
 }

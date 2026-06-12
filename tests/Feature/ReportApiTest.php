@@ -8,7 +8,6 @@ use App\Collections\ReportCollection;
 use App\DTO\ReportDTO;
 use App\Repositories\Contracts\ReportRepositoryInterface;
 use Illuminate\Support\Facades\Redis;
-use Illuminate\Support\Facades\RateLimiter;
 use Mockery;
 use Tests\TestCase;
 
@@ -25,12 +24,12 @@ class ReportApiTest extends TestCase
         $recipient = 'client_success_unique_1';
 
         $mockRepository = Mockery::mock(ReportRepositoryInterface::class);
-        
+
         $mockRepository->shouldReceive('getByRecipient')
             ->once()
             ->with($recipient, 1, null)
             ->andReturn(new ReportCollection([
-                new ReportDTO('uuid-1', $recipient, 'sent', '2026-06-12T11:58:50.000000')
+                new ReportDTO('uuid-1', $recipient, 'sent', '2026-06-12T11:58:50.000000'),
             ]));
 
         $this->app->instance(ReportRepositoryInterface::class, $mockRepository);
@@ -47,14 +46,14 @@ class ReportApiTest extends TestCase
                             'message_id' => 'uuid-1',
                             'recipient' => $recipient,
                             'status' => 'sent',
-                            'updated_at' => '2026-06-12T11:58:50.000000'
-                        ]
+                            'updated_at' => '2026-06-12T11:58:50.000000',
+                        ],
                     ],
                     'meta' => [
                         'limit' => 1,
-                        'next_cursor' => '2026-06-12T11:58:50.000000'
-                    ]
-                ]
+                        'next_cursor' => '2026-06-12T11:58:50.000000',
+                    ],
+                ],
             ]);
     }
 
@@ -63,7 +62,7 @@ class ReportApiTest extends TestCase
         $recipient = 'unknown_recipient';
 
         $mockRepository = Mockery::mock(ReportRepositoryInterface::class);
-        
+
         $mockRepository->shouldReceive('getByRecipient')
             ->once()
             ->with($recipient, 15, null)
@@ -77,7 +76,7 @@ class ReportApiTest extends TestCase
             ->assertJson([
                 'status' => 'error',
                 'message' => 'No reports found for this recipient',
-                'data' => null
+                'data' => null,
             ]);
     }
 }

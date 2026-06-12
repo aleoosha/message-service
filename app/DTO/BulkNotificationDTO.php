@@ -11,12 +11,7 @@ use App\Enums\NotificationPriority;
 readonly class BulkNotificationDTO
 {
     /**
-     * @param string $idempotencyKey
-     * @param NotificationChannel $channel
-     * @param NotificationPriority $priority
-     * @param string $text
-     * @param UserIdsCollection $userIds
-     * @param array<int, string> $messageIds
+     * @param  array<int, string>  $messageIds
      */
     public function __construct(
         public string $idempotencyKey,

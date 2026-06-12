@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\v1;
 
-use App\Http\Controllers\Controller;
-use App\Http\Requests\BulkNotificationRequest;
 use App\Actions\SendBulkNotificationAction;
 use App\DTO\GeneratedMessageDTO;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\BulkNotificationRequest;
 use Illuminate\Http\JsonResponse;
 
 class NotificationController extends Controller
@@ -30,7 +30,7 @@ class NotificationController extends Controller
         return $this->success(
             message: 'Bulk notifications accepted for delivery',
             data: [
-                'items' => $items
+                'items' => $items,
             ],
             code: 202
         );

@@ -15,11 +15,11 @@ class ReportController extends Controller
      * Возвращает аналитические отчеты по получателю.
      */
     public function show(
-        string $recipient, 
-        GetAnalyticsReportRequest $request, 
+        string $recipient,
+        GetAnalyticsReportRequest $request,
         GetAnalyticsReportAction $action
     ): JsonResponse {
-        
+
         $result = $action->execute(
             recipient: $recipient,
             limit: $request->integer('limit', 15),
