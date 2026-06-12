@@ -20,13 +20,15 @@ class NotificationRepository implements NotificationRepositoryInterface
     public function saveBulk(BulkNotificationDTO $dto): void
     {
         DB::transaction(function () use ($dto): void {
-            foreach ($dto->userIds->toArray() as $userId) {
-                $notificationUuid = Str::uuid()->toString();
+            $userIdsArray = collect($dto->userIds)->all();
+
+            foreach ($userIdsArray as $index => $userId) {
+                $notificationUuid = $dto->messageIds[$index];
 
                 DB::table('notifications')->insert([
                     'uuid' => $notificationUuid,
-                    'idempotency_key' => $dto->idempotencyKey.':'.$userId,
-                    'user_id' => $userId,
+                    'idempotency_key' => $dto->idempotencyKey . ':' . $userId,
+                    'user_id' => (int) $userId,
                     'text' => $dto->text,
                     'channel' => $dto->channel->value,
                     'created_at' => now(),
@@ -40,7 +42,7 @@ class NotificationRepository implements NotificationRepositoryInterface
                     'type' => $dto->priority->value,
                     'payload' => json_encode([
                         'id' => $notificationUuid,
-                        'user_id' => $userId,
+                        'user_id' => (int) $userId,
                         'text' => $dto->text,
                         'channel' => $dto->channel->value,
                         'recipient' => (string) $userId,

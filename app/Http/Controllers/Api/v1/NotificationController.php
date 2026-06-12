@@ -4,31 +4,34 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\v1;
 
-use App\Actions\SendBulkNotificationAction;
-use App\DTO\BulkNotificationDTO;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\BulkNotificationRequest;
+use App\Actions\SendBulkNotificationAction;
+use App\DTO\GeneratedMessageDTO;
 use Illuminate\Http\JsonResponse;
 
-/**
- * Контроллер для управления отправкой пакетов уведомлений через API.
- */
 class NotificationController extends Controller
 {
     /**
-     * Принимает и обрабатывает запрос на массовую отправку уведомлений.
+     * Принимает пакет уведомлений и делегирует обработку бизнес-слою.
      */
-    public function sendBulk(
-        BulkNotificationRequest $request,
-        SendBulkNotificationAction $action
-    ): JsonResponse {
-        $dto = BulkNotificationDTO::fromRequest($request->validated());
+    public function sendBulk(BulkNotificationRequest $request, SendBulkNotificationAction $action): JsonResponse
+    {
+        $generatedCollection = $action->execute(
+            idempotencyKey: (string) $request->header('X-Idempotency-Key'),
+            payload: $request->validated()
+        );
 
-        $action->execute($dto);
+        $items = $generatedCollection->map(fn (GeneratedMessageDTO $item) => [
+            'user_id' => $item->userId,
+            'message_id' => $item->messageId,
+        ])->toArray();
 
         return $this->success(
-            data: null,
             message: 'Bulk notifications accepted for delivery',
+            data: [
+                'items' => $items
+            ],
             code: 202
         );
     }

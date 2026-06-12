@@ -8,34 +8,22 @@ use App\Collections\UserIdsCollection;
 use App\Enums\NotificationChannel;
 use App\Enums\NotificationPriority;
 
-/**
- * Объект переноса данных (DTO) для пакета массовой рассылки уведомлений.
- */
 readonly class BulkNotificationDTO
 {
+    /**
+     * @param string $idempotencyKey
+     * @param NotificationChannel $channel
+     * @param NotificationPriority $priority
+     * @param string $text
+     * @param UserIdsCollection $userIds
+     * @param array<int, string> $messageIds
+     */
     public function __construct(
         public string $idempotencyKey,
         public NotificationChannel $channel,
         public NotificationPriority $priority,
         public string $text,
         public UserIdsCollection $userIds,
+        public array $messageIds
     ) {}
-
-    /**
-     * Фабричный метод для сборки DTO из валидированных данных HTTP-запроса.
-     *
-     * @param  array<string, mixed>  $data
-     */
-    public static function fromRequest(array $data): self
-    {
-        $ints = array_map(fn ($id) => (int) $id, $data['user_ids']);
-
-        return new self(
-            idempotencyKey: $data['idempotency_key'],
-            channel: NotificationChannel::from($data['channel']),
-            priority: NotificationPriority::from($data['priority'] ?? 'low'),
-            text: (string) $data['text'],
-            userIds: new UserIdsCollection($ints),
-        );
-    }
 }
