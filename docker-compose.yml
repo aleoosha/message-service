@@ -1,3 +1,4 @@
+
 services:
   # 1. База данных PostgreSQL (с поддержкой CDC / Debezium)
   pgsql:
@@ -30,7 +31,7 @@ services:
       timeout: 3s
       retries: 5
 
-  # 3. Apache Kafka (Современный режим KRaft, без тяжелого Zookeeper)
+  # 3. Apache Kafka (Режим KRaft)
   kafka:
     image: "confluentinc/cp-kafka:7.5.0"
     container_name: "ms-kafka"
@@ -57,7 +58,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # 4. Debezium (CDC Outbox Relay — читает WAL-лог Postgres)
+  # 4. Debezium (CDC Outbox Relay)
   debezium:
     image: "debezium/connect:2.4"
     container_name: "ms-debezium"
@@ -77,12 +78,12 @@ services:
     networks:
       - app-network
 
-  # 5. Автономный инициализатор Debezium
+  # 5. Инициализатор Debezium
   debezium-init:
     image: "curlimages/curl:latest"
     container_name: "ms-debezium-init"
     volumes:
-      - "./debezium-postgres.json:/tmp/config.json:ro" # Монтируем чистый файл конфигурации
+      - "./debezium-postgres.json:/tmp/config.json:ro"
     depends_on:
       debezium:
         condition: service_started
@@ -93,24 +94,23 @@ services:
       - |
         echo "Waiting for Debezium API..."
         while [ $$(curl -s -o /dev/null -w "%{http_code}" http://debezium:8083/connectors) -ne 200 ]; do sleep 2; done
-        
-        echo "Registering PostgreSQL Outbox Connector via clean JSON file..."
+        echo "Registering PostgreSQL Outbox Connector..."
         curl -X POST -H "Content-Type: application/json" -d @/tmp/config.json http://debezium:8083/connectors
         echo "Connector registered successfully!"
 
-  # 6. ClickHouse (Аналитическая база данных для отчетов по статусам)
+  # 6. ClickHouse
   clickhouse:
     image: "clickhouse/clickhouse-server:latest"
     container_name: "ms-clickhouse"
     ports:
-      - "8123:8123" # HTTP интерфейс для Laravel
-      - "9000:9000" # Нативный клиент
+      - "8123:8123"
+      - "9000:9000"
     environment:
       CLICKHOUSE_DB: "analytics"
       CLICKHOUSE_USER: default
       CLICKHOUSE_PASSWORD: secret_password
     volumes:
-      - "./clickhouse-init.sql:/docker-entrypoint-initdb.d/clickhouse-init.sql:ro" # Монтируем SQL скрипт
+      - "./clickhouse-init.sql:/docker-entrypoint-initdb.d/clickhouse-init.sql:ro"
     networks:
       - app-network
     healthcheck:
@@ -119,7 +119,7 @@ services:
       timeout: 3s
       retries: 5
 
-  # 7. Инициализатор Laravel (Создает среду, структуру БД и прогоняет миграции)
+  # 7. Инициализатор Laravel (Миграции и генерация среды)
   db-init:
     build: .
     container_name: "ms-db-init"
@@ -131,16 +131,8 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-password}
     volumes:
       - ".:/var/www/html"
-    # ИСПРАВЛЕНО: Автоматическое копирование .env и генерация ключа перед миграциями
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        if [ ! -f .env ]; then
-          echo "Файл .env не найден. Копируем из .env.example..."
-          cp .env.example .env
-          php artisan key:generate --no-interaction
-        fi
-        php artisan migrate --force --no-interaction
+      - "app-vendor:/var/www/html/vendor"
+    entrypoint: ["/bin/sh", "/var/www/html/docker-init.sh"]
     depends_on:
       pgsql:
         condition: service_healthy
@@ -164,6 +156,7 @@ services:
       - CLICKHOUSE_HOST=clickhouse
     volumes:
       - ".:/var/www/html"
+      - "app-vendor:/var/www/html/vendor"
     command: php artisan serve --host=0.0.0.0 --port=8000
     depends_on:
       db-init:
@@ -185,6 +178,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-password}
     volumes:
       - ".:/var/www/html"
+      - "app-vendor:/var/www/html/vendor"
     command: php artisan app:consume-kafka --topic=high
     depends_on:
       kafka:
@@ -209,6 +203,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-password}
     volumes:
       - ".:/var/www/html"
+      - "app-vendor:/var/www/html/vendor"
     command: php artisan app:consume-kafka --topic=low
     depends_on:
       kafka:
@@ -225,6 +220,7 @@ services:
     container_name: "ms-phpstan"
     volumes:
       - ".:/app:ro"
+      - "app-vendor:/app/vendor:ro"
     working_dir: /app
     command: analyse app routes
     networks:
@@ -232,10 +228,11 @@ services:
 
   # 12. Одноразовый контейнер для автоматического прогрева Блум-фильтра при старте
   bloom-warmup:
-    image: "message-service-app"
+    build: .
     container_name: "ms-bloom-warmup"
     volumes:
       - ".:/var/www/html"
+      - "app-vendor:/var/www/html/vendor"
     entrypoint: ["php", "/var/www/html/artisan", "bloom:warmup", "--chunk=10000", "--no-interaction"]
     networks:
       - app-network
@@ -247,12 +244,12 @@ services:
       pgsql:
         condition: service_started
 
-
-
 networks:
   app-network:
     driver: bridge
 
 volumes:
   db-data:
+    driver: local
+  app-vendor: 
     driver: local
