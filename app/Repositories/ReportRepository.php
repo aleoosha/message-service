@@ -15,30 +15,36 @@ class ReportRepository implements ReportRepositoryInterface
 
     public function __construct()
     {
-        $host = (string) config('database.connections.clickhouse.host', 'clickhouse');
-        $port = (string) config('database.connections.clickhouse.port', '8123');
-        $user = (string) config('database.connections.clickhouse.username', 'default');
-        $password = (string) config('database.connections.clickhouse.password', 'password');
+        $chHost = (string) config('database.connections.clickhouse.host', 'clickhouse');
+        $chPort = (string) config('database.connections.clickhouse.port', '8123');
+        $chUser = (string) config('database.connections.clickhouse.username', 'default');
+        $chPassword = (string) config('database.connections.clickhouse.password', 'secret_password');
 
-        $this->url = "http://{$host}:{$port}/?user={$user}&password={$password}";
+        $this->url = "http://{$chHost}:{$chPort}/?user={$chUser}&password={$chPassword}";
     }
 
-    /**
-     * Получает коллекцию DTO отчетов из ClickHouse.
-     */
-    public function getByRecipient(string $recipient): ReportCollection
+    public function getByRecipient(string $recipient, int $limit = 15, ?string $nextCursor = null): ReportCollection
     {
         $cleanRecipient = trim($recipient);
+        $whereConditions = ["recipient = '{$cleanRecipient}'"];
+
+        if ($nextCursor !== null && $nextCursor !== '') {
+            $whereConditions[] = "updated_at < '{$nextCursor}'";
+        }
+
+        $whereClause = implode(' AND ', $whereConditions);
 
         $sql = "SELECT message_id, recipient, status, toString(updated_at) as updated_at 
                 FROM analytics.notifications_report 
-                WHERE recipient = '{$cleanRecipient}' 
+                WHERE {$whereClause} 
+                ORDER BY updated_at DESC
+                LIMIT {$limit}
                 FORMAT JSON";
 
         $response = Http::withBody($sql, 'text/plain')->post($this->url);
 
-        if (! $response->successful()) {
-            return new ReportCollection;
+        if (!$response->successful()) {
+            return new ReportCollection();
         }
 
         $data = json_decode($response->body(), true, 512, JSON_THROW_ON_ERROR);

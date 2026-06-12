@@ -9,7 +9,7 @@ use App\Collections\ReportCollection;
 interface ReportRepositoryInterface
 {
     /**
-     * Получает коллекцию DTO отчетов по получателю.
+     * Получает коллекцию DTO отчетов из ClickHouse с поддержкой курсорной пагинации.
      */
-    public function getByRecipient(string $recipient): ReportCollection;
+    public function getByRecipient(string $recipient, int $limit = 15, ?string $nextCursor = null): ReportCollection;
 }

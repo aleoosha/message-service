@@ -4,28 +4,39 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\v1;
 
+use App\Actions\GetAnalyticsReportAction;
 use App\Http\Controllers\Controller;
-use App\Repositories\Contracts\ReportRepositoryInterface;
+use App\Http\Requests\GetAnalyticsReportRequest;
 use Illuminate\Http\JsonResponse;
 
-/**
- * Контроллер для вывода аналитических отчетов и статусов доставки из ClickHouse.
- */
 class ReportController extends Controller
 {
-    public function __construct(
-        private ReportRepositoryInterface $repository
-    ) {}
-
     /**
-     * Возвращает историю статусов уведомлений по ключу получателя.
+     * Возвращает аналитические отчеты по получателю.
      */
-    public function show(string $recipient): JsonResponse
-    {
-        $reports = $this->repository->getByRecipient($recipient);
+    public function show(
+        string $recipient, 
+        GetAnalyticsReportRequest $request, 
+        GetAnalyticsReportAction $action
+    ): JsonResponse {
+        
+        $result = $action->execute(
+            recipient: $recipient,
+            limit: $request->integer('limit', 15),
+            cursor: $request->filled('cursor') ? $request->string('cursor')->toString() : null
+        );
 
-        return $reports->isEmpty()
-            ? $this->error('No reports found for this recipient', 404)
-            : $this->success($reports->toArray());
+        if ($result === null) {
+            return $this->error(
+                message: 'No reports found for this recipient',
+                code: 404
+            );
+        }
+
+        return $this->success(
+            message: 'Action completed successfully',
+            data: $result->toArray(),
+            code: 200
+        );
     }
 }
