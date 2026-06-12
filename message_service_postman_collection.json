@@ -1,0 +1,140 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+    "name": "Message Service API",
+    "description": "Коллекция для тестирования распределенной системы уведомлений (Laravel 12 + Kafka + ClickHouse)",
+    "schema": "https://getpostman.com"
+  },
+  "item": [
+    {
+      "name": "Отправка массовых уведомлений (High Priority)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "X-Idempotency-Key",
+            "value": "postman_win_high_{{$randomInt}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"channel\": \"sms\",\n    \"priority\": \"high\",\n    \"text\": \"Важное системное уведомление!\",\n    \"user_ids\": [101, 102, 103]\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/v1/notifications",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "v1",
+            "notifications"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Отправка массовых уведомлений (Low Priority)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "X-Idempotency-Key",
+            "value": "postman_win_low_{{$randomInt}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"channel\": \"telegram\",\n    \"priority\": \"low\",\n    \"text\": \"Маркетинговая рассылка новостей.\",\n    \"user_ids\": [201, 202]\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/v1/notifications",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "v1",
+            "notifications"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Проверка триггера SPAM_BLOCK (Мгновенный дроп)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "X-Idempotency-Key",
+            "value": "postman_trigger_spam_{{$randomInt}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"channel\": \"email\",\n    \"priority\": \"high\",\n    \"text\": \"Этот текст содержит SPAM_BLOCK триггер\",\n    \"user_ids\": [301]\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/v1/notifications",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "v1",
+            "notifications"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Получение отчетов аналитики из ClickHouse",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8080/api/v1/reports/fully_stable_win_1000",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "v1",
+            "reports",
+            "fully_stable_win_1000"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

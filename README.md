@@ -1,58 +1,72 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Документация компонента идемпотентности и аналитики микросервиса рассылки
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Высоконагруженный микросервис массовой рассылки уведомлений. Построен на базе транзакционного паттерна Outbox с асинхронной репликацией данных средствами Debezium и Apache Kafka в аналитическое хранилище ClickHouse. Проект оснащен встроенной двухэтапной системой обеспечения идемпотентности запросов API.
 
-## About Laravel
+## Архитектура дедупликации запросов
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Защита системы от повторной обработки идентичных пакетов и предотвращение исключений `UniqueConstraintViolationException (500)` на уровне PostgreSQL реализованы на двух последовательных рубежах контроля:
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+1. **IdempotencyMiddleware**: Первичный перехват HTTP-запроса до этапа валидации данных. Выполняет проверку наличия сериализованного HTTP-ответа в кэше Redis (`O(1)`). При промахе кэша устанавливает короткий распределенный Mutex-замок средствами атомарной команды `SET NX EX` для защиты от конкурентных запросов в рамках одной миллисекунды.
+2. **BulkNotificationRequest & IdempotencyRule**: Слой валидации входящих данных на базе контракта `Illuminate\Contracts\Validation\ValidationRule`. Извлекает строковое значение ключа из HTTP-заголовка `X-Idempotency-Key` и проверяет его по битовой маске **Фильтра Блума** в Redis. При совпадении хэш-смещений выполняется резервный точечный запрос `whereIn` к PostgreSQL для исключения ложноположительных коллизий. При подтверждении дубликата генерируется `HttpResponseException` с кодом `422`. Если ключ уникален, биты фильтра Блума атомарно взводятся в Redis через команду `SETBIT` непосредственно в процессе валидации.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Версионирование API
 
-## Learning Laravel
+Версионирование HTTP-эндпоинтов реализовано через префиксы URL путей для обеспечения обратной совместимости контрактов:
+* Текущая стабильная версия бизнес-логики: `/api/v1/notifications`
+* Текущая версия аналитических отчетов: `/api/v1/reports/{recipient}`
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+Изменение структуры DTO или формата ответов требует выпуска следующего префикса пространства имен (`v2`) без модификации существующего контура.
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## Порядок развертывания проекта (Deployment)
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+Вся распределенная инфраструктура, включая миграции, регистрацию CDC-коннекторов и прогрев кэша битовых масок, полностью автоматизирована на уровне Docker Compose.
 
-## Agentic Development
+**Запуск проекта**:
+   ```bash
+   docker compose up -d --build
+   ```
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Бизнес-логика воркеров и триггерные константы
+
+Асинхронные обработчики Kafka (`ProcessNotificationHandler`) поддерживают контентную фильтрацию входящего текстового payload с помощью зарезервированных системных констант:
+
+* `SPAM_BLOCK`: Строковый триггер стопроцентной блокировки сообщения. Если текст уведомления содержит данную подстроку, воркер прерывает дальнейшую обработку и мгновенно отбрасывает пакет без обращения к внешнему шлюзу провайдера. В ClickHouse фиксируется аналитический статус лога `dropped`.
+* `FORCE_SEND`: Строковый триггер гарантированного обхода сетевых сбоев. По умолчанию воркер имитирует нестабильность внешнего API шлюза, генерируя случайные сетевые ошибки (Gateway Timeout) в 20% случаев. Наличие подстроки `FORCE_SEND` отключает вероятностную симуляцию аварий, обеспечивая успешную доставку уведомления внешнему провайдеру со 100% вероятностью.
+* По-умолчанию с вероятностью 20% соединение с сервисом отправки упадет по таймауту для каждого отдельного сообщения. Это позволяет тестировать обработку ошибок и логику восстановления.
+
+## Команды управления инфраструктурой
+
+Автоматизация администрирования локального окружения вынесена в секцию `scripts` файла `composer.json` и выполняется внутри контейнера `app`:
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+# Диагностика сетевой связности и подсчет объема накопленных данных во всех узлах
+docker compose exec app composer db:status
+```
+```bash
+# Полный сброс и принудительная повторная инициализация таблиц ClickHouse и коннекторов Debezium
+docker compose exec app composer db:reset-all
+```
+```bash
+# Форматирование исходного кода по стандарту проекта
+docker compose exec app composer format
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+## Интеграционное тестирование и Postman
 
-## Contributing
+Для ручного тестирования и верификации сквозных цепочек обработки в корневом каталоге проекта находится файл коллекции **`message_service_postman_collection.json`**. 
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Коллекция содержит настроенные эндпоинты для всех версий API, предзаполненные структуры payload для массовой отправки, примеры заголовков `X-Idempotency-Key` и автоматические JS-скрипты во вкладке *Tests* для валидации статус-кодов ответов (`202 Accepted`, `200 OK`, `422 Unprocessable Entity`).
 
-## Code of Conduct
+## Тестирование и статический анализ
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+# Запуск пакета модульных и функциональных E2E тестов в среде Pest v3
+docker compose exec app ./vendor/bin/pest
+```
+```bash
+# Проверка строгой типизации и сигнатур фасадов фреймворка через PHPStan
+docker compose run --rm phpstan
+```
 
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## LICENSE
+- MIT

@@ -107,6 +107,8 @@ services:
       - "9000:9000" # Нативный клиент
     environment:
       CLICKHOUSE_DB: "analytics"
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: secret_password
     volumes:
       - "./clickhouse-init.sql:/docker-entrypoint-initdb.d/clickhouse-init.sql:ro" # Монтируем SQL скрипт
     networks:
@@ -117,7 +119,7 @@ services:
       timeout: 3s
       retries: 5
 
-  # 7. Инициализатор Laravel (Создает структуру БД и прогоняет миграции)
+  # 7. Инициализатор Laravel (Создает среду, структуру БД и прогоняет миграции)
   db-init:
     build: .
     container_name: "ms-db-init"
@@ -129,7 +131,16 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-password}
     volumes:
       - ".:/var/www/html"
-    command: php artisan migrate --force --no-interaction
+    # ИСПРАВЛЕНО: Автоматическое копирование .env и генерация ключа перед миграциями
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        if [ ! -f .env ]; then
+          echo "Файл .env не найден. Копируем из .env.example..."
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+        fi
+        php artisan migrate --force --no-interaction
     depends_on:
       pgsql:
         condition: service_healthy
@@ -218,6 +229,24 @@ services:
     command: analyse app routes
     networks:
       - app-network
+
+  # 12. Одноразовый контейнер для автоматического прогрева Блум-фильтра при старте
+  bloom-warmup:
+    image: "message-service-app"
+    container_name: "ms-bloom-warmup"
+    volumes:
+      - ".:/var/www/html"
+    entrypoint: ["php", "/var/www/html/artisan", "bloom:warmup", "--chunk=10000", "--no-interaction"]
+    networks:
+      - app-network
+    depends_on:
+      app:
+        condition: service_started
+      redis:
+        condition: service_started
+      pgsql:
+        condition: service_started
+
 
 
 networks:
