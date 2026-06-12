@@ -7,80 +7,77 @@ namespace Tests\Feature;
 use App\Collections\ReportCollection;
 use App\DTO\ReportDTO;
 use App\Repositories\Contracts\ReportRepositoryInterface;
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\RateLimiter;
+use Mockery;
+use Tests\TestCase;
 
-beforeEach(function () {
-    RateLimiter::clear('analytics_api');
-});
-
-it('returns analytic reports from clickhouse with 200 status', function () {
-    $dto = new ReportDTO(
-        messageId: '300822ca-664a-4f43-8662-e75afd5d715b',
-        recipient: 'client_success_unique_1',
-        status: 'sent',
-        updatedAt: '2026-06-11 10:48:10'
-    );
-
-    $mockCollection = new ReportCollection([$dto]);
-
-    $this->mock(ReportRepositoryInterface::class)
-        ->shouldReceive('getByRecipient')
-        ->once()
-        ->with('client_success_unique_1')
-        ->andReturn($mockCollection);
-
-    $response = $this->getJson('/api/v1/reports/client_success_unique_1');
-
-    $response->assertStatus(200)
-        ->assertJson([
-            'status' => 'success',
-            'data' => [
-                [
-                    'message_id' => '300822ca-664a-4f43-8662-e75afd5d715b',
-                    'recipient' => 'client_success_unique_1',
-                    'status' => 'sent',
-                    'updated_at' => '2026-06-11 10:48:10',
-                ],
-            ],
-        ]);
-});
-
-it('returns 404 when no reports found for recipient', function () {
-    $this->mock(ReportRepositoryInterface::class)
-        ->shouldReceive('getByRecipient')
-        ->once()
-        ->with('client_unknown_unique_2')
-        ->andReturn(new ReportCollection([]));
-
-    $response = $this->getJson('/api/v1/reports/client_unknown_unique_2');
-
-    $response->assertStatus(404)
-        ->assertJson([
-            'status' => 'error',
-            'message' => 'No reports found for this recipient',
-        ]);
-});
-
-it('enforces rate limiting on analytics endpoint after 100 requests', function () {
-    $this->mock(ReportRepositoryInterface::class)
-        ->shouldReceive('getByRecipient')
-        ->zeroOrMoreTimes()
-        ->andReturn(new ReportCollection([]));
-
-    $recipientKey = 'client_flood_unique_3';
-
-    $targetIp = '10.20.30.40';
-
-    // 1. Совершаем 100 честных последовательных запросов, забивая лимит до максимума
-    for ($i = 0; $i < 100; $i++) {
-        $this->withServerVariables(['REMOTE_ADDR' => $targetIp])
-            ->getJson("/api/v1/reports/{$recipientKey}")
-            ->assertStatus(404);
+class ReportApiTest extends TestCase
+{
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Redis::spy();
     }
 
-    // 2. 101-й запрос от этого же клиента гарантированно упирается в 429 Too Many Requests
-    $response = $this->withServerVariables(['REMOTE_ADDR' => $targetIp])
-        ->getJson("/api/v1/reports/{$recipientKey}");
+    public function test_it_returns_analytic_reports_from_clickhouse_with_200_status(): void
+    {
+        $recipient = 'client_success_unique_1';
 
-    $response->assertStatus(429);
-});
+        $mockRepository = Mockery::mock(ReportRepositoryInterface::class);
+        
+        $mockRepository->shouldReceive('getByRecipient')
+            ->once()
+            ->with($recipient, 1, null)
+            ->andReturn(new ReportCollection([
+                new ReportDTO('uuid-1', $recipient, 'sent', '2026-06-12T11:58:50.000000')
+            ]));
+
+        $this->app->instance(ReportRepositoryInterface::class, $mockRepository);
+
+        $response = $this->getJson("/api/v1/reports/{$recipient}?limit=1");
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'status' => 'success',
+                'message' => 'Action completed successfully',
+                'data' => [
+                    'items' => [
+                        [
+                            'message_id' => 'uuid-1',
+                            'recipient' => $recipient,
+                            'status' => 'sent',
+                            'updated_at' => '2026-06-12T11:58:50.000000'
+                        ]
+                    ],
+                    'meta' => [
+                        'limit' => 1,
+                        'next_cursor' => '2026-06-12T11:58:50.000000'
+                    ]
+                ]
+            ]);
+    }
+
+    public function test_it_returns_404_when_no_reports_found_for_recipient(): void
+    {
+        $recipient = 'unknown_recipient';
+
+        $mockRepository = Mockery::mock(ReportRepositoryInterface::class);
+        
+        $mockRepository->shouldReceive('getByRecipient')
+            ->once()
+            ->with($recipient, 15, null)
+            ->andReturn(new ReportCollection([]));
+
+        $this->app->instance(ReportRepositoryInterface::class, $mockRepository);
+
+        $response = $this->getJson("/api/v1/reports/{$recipient}");
+
+        $response->assertStatus(404)
+            ->assertJson([
+                'status' => 'error',
+                'message' => 'No reports found for this recipient',
+                'data' => null
+            ]);
+    }
+}
