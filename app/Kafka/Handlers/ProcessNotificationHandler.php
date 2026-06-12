@@ -44,7 +44,7 @@ class ProcessNotificationHandler
         $notification = json_decode((string) $payload['payload'], true, 512, JSON_THROW_ON_ERROR);
         $messageId = (string) $notification['id'];
         $text = (string) ($notification['text'] ?? '');
-        
+
         $recipient = $this->extractRecipient($notification);
 
         $workerPriority = config('app.current_worker_priority');
@@ -88,19 +88,16 @@ class ProcessNotificationHandler
 
     /**
      * Пытается установить атомарную блокировку для предотвращения race condition.
-     *
-     * @param string $messageId
-     * @return bool
      */
     private function acquireLock(string $messageId): bool
     {
         $result = Redis::executeRaw([
-            'SET', 
-            "msg:lock:{$messageId}", 
-            'processing', 
-            'NX', 
-            'EX', 
-            (string) self::LOCK_TTL
+            'SET',
+            "msg:lock:{$messageId}",
+            'processing',
+            'NX',
+            'EX',
+            (string) self::LOCK_TTL,
         ]);
 
         return $result === true || $result === 'OK';
@@ -191,8 +188,7 @@ class ProcessNotificationHandler
     /**
      * Извлекает реального получателя (ID пользователя) из структуры уведомления.
      *
-     * @param array<string, mixed> $notification
-     * @return string
+     * @param  array<string, mixed>  $notification
      */
     private function extractRecipient(array $notification): string
     {

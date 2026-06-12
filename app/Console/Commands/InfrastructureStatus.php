@@ -23,48 +23,42 @@ class InfrastructureStatus extends Command
 
     /**
      * Выполняет диагностику всех слоев инфраструктуры.
-     *
-     * @return int
      */
     public function handle(): int
     {
-        $this->info('=== ДИАГНОСТИКА РАСПРЕДЕЛЕННОЙ СИСТЕМЫ ===' . PHP_EOL);
+        $this->info('=== ДИАГНОСТИКА РАСПРЕДЕЛЕННОЙ СИСТЕМЫ ==='.PHP_EOL);
 
         $this->checkPostgres();
         $this->checkRedis();
         $this->checkDebezium();
         $this->checkClickHouse();
 
-        $this->line(PHP_EOL . '=========================================');
+        $this->line(PHP_EOL.'=========================================');
 
         return Command::SUCCESS;
     }
 
     /**
      * Проверяет состояние и наполненность таблиц PostgreSQL.
-     *
-     * @return void
      */
     private function checkPostgres(): void
     {
         try {
             $outboxCount = DB::table('outbox_messages')->count();
             $notificationsCount = DB::table('notifications')->count();
-            
+
             $this->line(sprintf(
-                'PostgreSQL:  [OK]  (Уведомлений в БД: <comment>%d</comment>, Записей в Outbox: <comment>%d</comment>)', 
-                $notificationsCount, 
+                'PostgreSQL:  [OK]  (Уведомлений в БД: <comment>%d</comment>, Записей в Outbox: <comment>%d</comment>)',
+                $notificationsCount,
                 $outboxCount
             ));
         } catch (\Exception $e) {
-            $this->error('PostgreSQL:  [FAIL] Ошибка подключения: ' . $e->getMessage());
+            $this->error('PostgreSQL:  [FAIL] Ошибка подключения: '.$e->getMessage());
         }
     }
 
     /**
      * Проверяет состояние и количество ключей в Redis.
-     *
-     * @return void
      */
     private function checkRedis(): void
     {
@@ -73,26 +67,25 @@ class InfrastructureStatus extends Command
             $keys = Redis::keys('idempotency:*');
             /** @var array<int, string> $msgKeys */
             $msgKeys = Redis::keys('msg:*');
-            
+
             $totalKeys = count($keys) + count($msgKeys);
             $this->line(sprintf('Redis:       [OK]  (Активных замков и ключей кэша в памяти: <comment>%d</comment>)', $totalKeys));
         } catch (\Exception $e) {
-            $this->error('Redis:       [FAIL] Ошибка подключения: ' . $e->getMessage());
+            $this->error('Redis:       [FAIL] Ошибка подключения: '.$e->getMessage());
         }
     }
 
     /**
      * Проверяет статус репликации коннектора Debezium.
-     *
-     * @return void
      */
     private function checkDebezium(): void
     {
         $dbzHost = env('DEBEZIUM_HOST', 'debezium');
         $configPath = base_path('debezium-postgres.json');
 
-        if (!file_exists($configPath)) {
+        if (! file_exists($configPath)) {
             $this->line('Debezium:    [WARN] Файл конфигурации debezium-postgres.json не найден для определения имени.');
+
             return;
         }
 
@@ -105,25 +98,23 @@ class InfrastructureStatus extends Command
                 $responseData = $response->json();
                 $state = $responseData['connector']['state'] ?? 'UNKNOWN';
                 $taskState = $responseData['tasks']['state'] ?? 'UNKNOWN';
-                
+
                 $this->line(sprintf(
-                    'Debezium:    [OK]  (Коннектор: <comment>%s</comment>, Статус: <comment>%s</comment>, Задача: <comment>%s</comment>)', 
-                    $connectorName, 
-                    $state, 
+                    'Debezium:    [OK]  (Коннектор: <comment>%s</comment>, Статус: <comment>%s</comment>, Задача: <comment>%s</comment>)',
+                    $connectorName,
+                    $state,
                     $taskState
                 ));
             } else {
                 $this->line(sprintf('Debezium:    [WARN] Коннектор %s зарегистрирован, но сервер вернул код %d', $connectorName, $response->status()));
             }
         } catch (\Exception $e) {
-            $this->error('Debezium:    [FAIL] Не удалось опросить статус коннектора: ' . $e->getMessage());
+            $this->error('Debezium:    [FAIL] Не удалось опросить статус коннектора: '.$e->getMessage());
         }
     }
 
     /**
      * Проверяет авторизацию и количество аналитических отчетов в ClickHouse.
-     *
-     * @return void
      */
     private function checkClickHouse(): void
     {
@@ -145,7 +136,7 @@ class InfrastructureStatus extends Command
                 $this->line(sprintf('ClickHouse:  [FAIL] Код: %d, Ошибка: %s', $response->status(), trim($response->body())));
             }
         } catch (\Exception $e) {
-            $this->error('ClickHouse:  [FAIL] База аналитики недоступна по сети: ' . $e->getMessage());
+            $this->error('ClickHouse:  [FAIL] База аналитики недоступна по сети: '.$e->getMessage());
         }
     }
 }

@@ -15,9 +15,7 @@ class IdempotencyMiddleware
     use ApiResponse;
 
     /**
-     * @param Request $request
-     * @param Closure(Request): Response $next
-     * @return Response
+     * @param  Closure(Request): Response  $next
      */
     public function handle(Request $request, Closure $next): Response
     {
@@ -42,7 +40,7 @@ class IdempotencyMiddleware
         $lockKey = "idempotency:lock:{$stringKey}";
         $lockAcquired = Redis::executeRaw(['SET', $lockKey, 'processing', 'NX', 'EX', '10']);
 
-        if (!$lockAcquired || $lockAcquired === 'FALSE') {
+        if (! $lockAcquired || $lockAcquired === 'FALSE') {
             return $this->error(
                 message: 'Concurrent request in progress. Please try again.',
                 code: 409

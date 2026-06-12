@@ -25,14 +25,11 @@ class ReportRepository implements ReportRepositoryInterface
 
     /**
      * Получает коллекцию DTO отчетов из ClickHouse.
-     *
-     * @param string $recipient
-     * @return ReportCollection
      */
     public function getByRecipient(string $recipient): ReportCollection
     {
         $cleanRecipient = trim($recipient);
-        
+
         $sql = "SELECT message_id, recipient, status, toString(updated_at) as updated_at 
                 FROM analytics.notifications_report 
                 WHERE recipient = '{$cleanRecipient}' 
@@ -40,8 +37,8 @@ class ReportRepository implements ReportRepositoryInterface
 
         $response = Http::withBody($sql, 'text/plain')->post($this->url);
 
-        if (!$response->successful()) {
-            return new ReportCollection();
+        if (! $response->successful()) {
+            return new ReportCollection;
         }
 
         $data = json_decode($response->body(), true, 512, JSON_THROW_ON_ERROR);

@@ -38,6 +38,23 @@
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"
+        ],
+        "db:reset-all": [
+            "php artisan migrate:fresh",
+            "php artisan infra:reset",
+            "php artisan cache:clear"
+        ],
+        "deploy:warmup": [
+            "php artisan bloom:warmup --chunk=10000"
+        ],
+        "db:status": [
+            "php artisan infra:status"
+        ],
+        "db:clickhouse-top": [
+            "docker compose exec clickhouse clickhouse-client --query \"SELECT * FROM analytics.notifications_report ORDER BY updated_at DESC LIMIT 5\""
+        ],
+        "db:redis-keys": [
+            "docker compose exec redis redis-cli KEYS \"*\""
         ]
     },
     "config": {

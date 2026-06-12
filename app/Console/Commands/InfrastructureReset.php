@@ -22,26 +22,22 @@ class InfrastructureReset extends Command
 
     /**
      * Выполняет инициализацию и сброс асинхронного контура.
-     *
-     * @return int
      */
     public function handle(): int
     {
-        $this->info('=== СТАРТ ПОЛНОЙ ОЧИСТКИ И ИНИЦИАЛИЗАЦИИ ===' . PHP_EOL);
+        $this->info('=== СТАРТ ПОЛНОЙ ОЧИСТКИ И ИНИЦИАЛИЗАЦИИ ==='.PHP_EOL);
 
         $this->resetRedis();
         $this->resetClickHouse();
         $this->resetDebezium();
 
-        $this->info(PHP_EOL . 'Вся инфраструктура успешно инициализирована!');
+        $this->info(PHP_EOL.'Вся инфраструктура успешно инициализирована!');
 
         return Command::SUCCESS;
     }
 
     /**
      * Сбрасывает оперативную память Redis.
-     *
-     * @return void
      */
     private function resetRedis(): void
     {
@@ -56,13 +52,11 @@ class InfrastructureReset extends Command
 
     /**
      * Инициализирует схемы и очищает данные таблиц в ClickHouse.
-     *
-     * @return void
      */
     private function resetClickHouse(): void
     {
         $this->info('2. Инициализация и очистка таблиц в ClickHouse...');
-        
+
         $chHost = (string) config('database.connections.clickhouse.host', 'clickhouse');
         $chPort = (string) config('database.connections.clickhouse.port', '8123');
         $chUser = (string) config('database.connections.clickhouse.username', 'default');
@@ -85,19 +79,17 @@ class InfrastructureReset extends Command
             Http::withBody('TRUNCATE TABLE analytics.notifications_report', 'text/plain')->post($chUrl);
             $this->line('ClickHouse успешно подготовлен к работе.');
         } catch (\Exception $e) {
-            $this->error('Не удалось подключиться к ClickHouse: ' . $e->getMessage());
+            $this->error('Не удалось подключиться к ClickHouse: '.$e->getMessage());
         }
     }
 
     /**
      * Удаляет старый коннектор Debezium и регистрирует новый с чистого листа.
-     *
-     * @return void
      */
     private function resetDebezium(): void
     {
         $this->info('3. Сброс и регистрация смещений Debezium...');
-        
+
         $dbzHost = env('DEBEZIUM_HOST', 'debezium');
         $connectorName = 'outbox-connector';
         $url = "http://{$dbzHost}:8083/connectors/{$connectorName}";
@@ -119,8 +111,9 @@ class InfrastructureReset extends Command
         }
 
         $configPath = base_path('debezium-postgres.json');
-        if (!file_exists($configPath)) {
+        if (! file_exists($configPath)) {
             $this->error("Файл конфигурации коннектора не найден по пути: {$configPath}");
+
             return;
         }
 
@@ -129,7 +122,7 @@ class InfrastructureReset extends Command
 
         $createResponse = Http::post("http://{$dbzHost}:8083/connectors", $config);
 
-        if (!in_array($createResponse->status(), [201, 409], true)) {
+        if (! in_array($createResponse->status(), [201, 409], true)) {
             $this->error("Ошибка инициализации Debezium. Код ответа: {$createResponse->status()}");
         }
     }

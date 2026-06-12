@@ -7,12 +7,10 @@ namespace App\Rules;
 use App\Services\IdempotencyValidator;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Translation\PotentiallyTranslatedString;
 
 class IdempotencyRule implements ValidationRule
 {
-    /**
-     * @param IdempotencyValidator $idempotencyValidator
-     */
     public function __construct(
         private IdempotencyValidator $idempotencyValidator
     ) {}
@@ -20,10 +18,7 @@ class IdempotencyRule implements ValidationRule
     /**
      * Выполняет проверку валидности ключа идемпотентности.
      *
-     * @param string $attribute
-     * @param mixed $value
-     * @param Closure(string): \Illuminate\Translation\PotentiallyTranslatedString $fail
-     * @return void
+     * @param  Closure(string): PotentiallyTranslatedString  $fail
      */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
@@ -34,6 +29,7 @@ class IdempotencyRule implements ValidationRule
 
         if ($this->idempotencyValidator->isDuplicate($stringKey, $ints)) {
             $fail('Request with this idempotency key was already processed.');
+
             return;
         }
 

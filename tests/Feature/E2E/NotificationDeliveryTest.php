@@ -15,15 +15,15 @@ beforeEach(function () {
 });
 
 it('enforces idempotency hot cache and cold bloom filter validation rules', function () {
-    $idempotencyKey = 'e2e_fresh_key_' . Str::random(8);
+    $idempotencyKey = 'e2e_fresh_key_'.Str::random(8);
     $responseKey = "idempotency:response:{$idempotencyKey}";
     $lockKey = "idempotency:lock:{$idempotencyKey}";
-    
+
     $payload = [
         'channel' => 'sms',
         'priority' => 'high',
         'text' => 'Реальный тест контура валидации',
-        'user_ids' => [901, 902]
+        'user_ids' => [901, 902],
     ];
 
     // 1. Первый запрос (Запись данных и создание кэша)
@@ -51,7 +51,7 @@ it('enforces idempotency hot cache and cold bloom filter validation rules', func
         ->assertJson([
             'status' => 'error',
             'message' => 'Request with this idempotency key was already processed.',
-            'data' => null
+            'data' => null,
         ]);
 
     expect(DB::table('notifications')->count())->toBe(2);

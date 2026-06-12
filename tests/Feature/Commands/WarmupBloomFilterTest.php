@@ -31,7 +31,7 @@ it('successfully clears bloom filter and reimports clean keys from database', fu
             'channel' => 'sms',
             'created_at' => now(),
             'updated_at' => now(),
-        ]
+        ],
     ]);
 
     Redis::shouldReceive('del')
