@@ -43,8 +43,9 @@ class ProcessNotificationHandler
 
         $notification = json_decode((string) $payload['payload'], true, 512, JSON_THROW_ON_ERROR);
         $messageId = (string) $notification['id'];
-        $recipient = (string) ($notification['recipient'] ?? 'user_id_'.$notification['user_id']);
         $text = (string) ($notification['text'] ?? '');
+        
+        $recipient = $this->extractRecipient($notification);
 
         $workerPriority = config('app.current_worker_priority');
         $messagePriority = (string) $payload['type'];
@@ -87,10 +88,22 @@ class ProcessNotificationHandler
 
     /**
      * Пытается установить атомарную блокировку для предотвращения race condition.
+     *
+     * @param string $messageId
+     * @return bool
      */
     private function acquireLock(string $messageId): bool
     {
-        return (bool) Redis::command('set', ["msg:lock:{$messageId}", 'processing', 'NX', 'EX', self::LOCK_TTL]);
+        $result = Redis::executeRaw([
+            'SET', 
+            "msg:lock:{$messageId}", 
+            'processing', 
+            'NX', 
+            'EX', 
+            (string) self::LOCK_TTL
+        ]);
+
+        return $result === true || $result === 'OK';
     }
 
     /**
@@ -173,6 +186,25 @@ class ProcessNotificationHandler
         );
 
         Kafka::publish()->onTopic('message.statuses')->withMessage($message)->send();
+    }
+
+    /**
+     * Извлекает реального получателя (ID пользователя) из структуры уведомления.
+     *
+     * @param array<string, mixed> $notification
+     * @return string
+     */
+    private function extractRecipient(array $notification): string
+    {
+        if (isset($notification['user_id'])) {
+            return (string) $notification['user_id'];
+        }
+
+        if (isset($notification['recipient'])) {
+            return (string) $notification['recipient'];
+        }
+
+        return 'unknown_user';
     }
 
     /**

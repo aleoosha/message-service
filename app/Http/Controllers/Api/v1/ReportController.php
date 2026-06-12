@@ -24,8 +24,8 @@ class ReportController extends Controller
     {
         $reports = $this->repository->getByRecipient($recipient);
 
-        return empty($reports)
+        return $reports->isEmpty()
             ? $this->error('No reports found for this recipient', 404)
-            : $this->success($reports);
+            : $this->success($reports->toArray());
     }
 }

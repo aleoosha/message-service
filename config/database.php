@@ -99,6 +99,13 @@ return [
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
+        'clickhouse' => [
+            'host' => env('CLICKHOUSE_HOST', 'clickhouse'),
+            'port' => env('CLICKHOUSE_PORT', '8123'),
+            'username' => env('CLICKHOUSE_USER', 'default'),
+            'password' => env('CLICKHOUSE_PASSWORD', 'password'),
+        ],
+
         'sqlsrv' => [
             'driver' => 'sqlsrv',
             'url' => env('DB_URL'),

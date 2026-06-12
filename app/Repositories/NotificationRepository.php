@@ -43,7 +43,7 @@ class NotificationRepository implements NotificationRepositoryInterface
                         'user_id' => $userId,
                         'text' => $dto->text,
                         'channel' => $dto->channel->value,
-                        'recipient' => $dto->idempotencyKey,
+                        'recipient' => (string) $userId,
                     ], JSON_THROW_ON_ERROR),
                     'created_at' => now(),
                 ]);

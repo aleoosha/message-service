@@ -5,10 +5,6 @@ use App\Http\Controllers\Api\v1\ReportController;
 use App\Http\Middleware\IdempotencyMiddleware;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/health', function () {
-    return response()->json(['status' => 'alive']);
-});
-
 Route::prefix('v1')->group(function (): void {
 
     Route::post('/notifications', [NotificationController::class, 'sendBulk'])

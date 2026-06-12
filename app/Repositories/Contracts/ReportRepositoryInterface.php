@@ -4,15 +4,12 @@ declare(strict_types=1);
 
 namespace App\Repositories\Contracts;
 
-/**
- * Контракт для чтения аналитических отчетов.
- */
+use App\Collections\ReportCollection;
+
 interface ReportRepositoryInterface
 {
     /**
-     * Получает историю статусов по получателю.
-     *
-     * @return array<int, array<string, mixed>>
+     * Получает коллекцию DTO отчетов по получателю.
      */
-    public function getByRecipient(string $recipient): array;
+    public function getByRecipient(string $recipient): ReportCollection;
 }

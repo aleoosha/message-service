@@ -22,9 +22,7 @@ class NotificationController extends Controller
         BulkNotificationRequest $request,
         SendBulkNotificationAction $action
     ): JsonResponse {
-        $idempotencyKey = (string) $request->header('X-Idempotency-Key');
-
-        $dto = BulkNotificationDTO::fromRequest($request->validated(), $idempotencyKey);
+        $dto = BulkNotificationDTO::fromRequest($request->validated());
 
         $action->execute($dto);
 

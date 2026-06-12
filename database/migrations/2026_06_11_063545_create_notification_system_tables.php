@@ -19,7 +19,7 @@ return new class extends Migration
             $table->uuid('uuid')->unique()->index()
                 ->comment('Глобальный уникальный ID уведомления');
 
-            $table->string('idempotency_key')->unique()
+            $table->string('idempotency_key')->unique()->index('idempotency_pattern_idx', 'varchar_pattern_ops')
                 ->comment('Ключ идемпотентности от вызывающего сервиса для предотвращения дублей');
 
             $table->unsignedBigInteger('user_id')->nullable()->index()
